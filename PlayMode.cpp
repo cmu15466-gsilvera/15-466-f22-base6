@@ -40,6 +40,10 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
             down.downs += 1;
             down.pressed = true;
             return true;
+        } else if (evt.key.keysym.sym == SDLK_RETURN) {
+            enter.downs += 1;
+            enter.pressed = true;
+            return true;
         }
     } else if (evt.type == SDL_KEYUP) {
         if (evt.key.keysym.sym == SDLK_a) {
@@ -54,6 +58,9 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
         } else if (evt.key.keysym.sym == SDLK_s) {
             down.pressed = false;
             return true;
+        } else if (evt.key.keysym.sym == SDLK_RETURN) {
+            enter.pressed = false;
+            return true;
         }
     }
 
@@ -64,14 +71,14 @@ void PlayMode::update(float elapsed)
 {
 
     // queue data for sending to server:
-    // TODO: send something that makes sense for your game
-    if (left.downs || right.downs || down.downs || up.downs) {
+    if (left.downs || right.downs || down.downs || up.downs || enter.downs) {
         // send a five-byte message of type 'b':
         client.connections.back().send('b');
         client.connections.back().send(left.downs);
         client.connections.back().send(right.downs);
         client.connections.back().send(down.downs);
         client.connections.back().send(up.downs);
+        client.connections.back().send(enter.downs);
     }
 
     // reset button press counters:
@@ -79,6 +86,7 @@ void PlayMode::update(float elapsed)
     right.downs = 0;
     up.downs = 0;
     down.downs = 0;
+    enter.downs = 0;
 
     // send/receive data:
     client.poll([this](Connection* c, Connection::Event event) {
