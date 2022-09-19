@@ -24,19 +24,19 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
     if (evt.type == SDL_KEYDOWN) {
         if (evt.key.repeat) {
             // ignore repeats
-        } else if (evt.key.keysym.sym == SDLK_a) {
+        } else if (evt.key.keysym.sym == SDLK_LEFT) {
             left.downs += 1;
             left.pressed = true;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_d) {
+        } else if (evt.key.keysym.sym == SDLK_RIGHT) {
             right.downs += 1;
             right.pressed = true;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_w) {
+        } else if (evt.key.keysym.sym == SDLK_UP) {
             up.downs += 1;
             up.pressed = true;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_s) {
+        } else if (evt.key.keysym.sym == SDLK_DOWN) {
             down.downs += 1;
             down.pressed = true;
             return true;
@@ -46,16 +46,16 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
             return true;
         }
     } else if (evt.type == SDL_KEYUP) {
-        if (evt.key.keysym.sym == SDLK_a) {
+        if (evt.key.keysym.sym == SDLK_LEFT) {
             left.pressed = false;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_d) {
+        } else if (evt.key.keysym.sym == SDLK_RIGHT) {
             right.pressed = false;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_w) {
+        } else if (evt.key.keysym.sym == SDLK_UP) {
             up.pressed = false;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_s) {
+        } else if (evt.key.keysym.sym == SDLK_DOWN) {
             down.pressed = false;
             return true;
         } else if (evt.key.keysym.sym == SDLK_RETURN) {
