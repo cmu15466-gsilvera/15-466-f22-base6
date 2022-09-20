@@ -12,6 +12,7 @@
 PlayMode::PlayMode(Client& client_)
     : client(client_)
 {
+    board = new GameBoard({ 10, 10 });
 }
 
 PlayMode::~PlayMode()
@@ -153,5 +154,11 @@ void PlayMode::draw(glm::uvec2 const& drawable_size)
 
         draw_text(glm::vec2(-aspect + 0.1f, -0.9f), "(press WASD to change your total)", 0.09f);
     }
+
+    // draw game board
+    {
+        board->draw(drawable_size);
+    }
+
     GL_ERRORS();
 }
