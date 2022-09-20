@@ -11,11 +11,11 @@
 struct Tile {
     int num_over = 0;
 
-    constexpr static glm::vec2 size = glm::vec2(0.1, 0.1);
+    constexpr static glm::vec2 block_size = glm::vec2(0.1, 0.1);
 
     // for indexing
     inline static size_t static_tile_index = 0;
-    const glm::vec2 pos;
+    const glm::ivec2 pos;
     size_t tile_id = 0;
 
     // for drawing
@@ -54,13 +54,13 @@ struct Tile {
             // initialize vertex buffer (what data is sent to the GPU)
             float vertices[] = {
                 // first triangle
-                -0.5f + size.x * pos.x, 0.5f - size.y * pos.y, 0.0f, // top right
-                -0.5f + size.x * pos.x, 0.5f - size.y * (pos.y + 1), 0.0f, // bottom right
-                -0.5f + size.x * (pos.x + 1), 0.5f - size.y * (pos.y + 1), 0.0f, // top left
+                -0.5f + block_size.x * pos.x, 0.5f - block_size.y * pos.y, 0.0f, // top right
+                -0.5f + block_size.x * pos.x, 0.5f - block_size.y * (pos.y + 1), 0.0f, // bottom right
+                -0.5f + block_size.x * (pos.x + 1), 0.5f - block_size.y * (pos.y + 1), 0.0f, // top left
                 // second triangle
-                -0.5f + size.x * pos.x, 0.5f - size.y * pos.y, 0.0f, // bottom right
-                -0.5f + size.x * (pos.x + 1), 0.5f - size.y * pos.y, 0.0f, // bottom left
-                -0.5f + size.x * (pos.x + 1), 0.5f - size.y * (pos.y + 1), 0.0f, // top left
+                -0.5f + block_size.x * pos.x, 0.5f - block_size.y * pos.y, 0.0f, // bottom right
+                -0.5f + block_size.x * (pos.x + 1), 0.5f - block_size.y * pos.y, 0.0f, // bottom left
+                -0.5f + block_size.x * (pos.x + 1), 0.5f - block_size.y * (pos.y + 1), 0.0f, // top left
             };
 
             // init arrays
@@ -89,7 +89,7 @@ struct Tile {
     {
         glUseProgram(Tile::draw_program);
         {
-            glm::vec4 colour = glm::vec4(tile_id / 100.f, tile_id / 100.f, tile_id / 100.f, 1.0);
+            glm::vec4 colour = glm::vec4(num_over / 1.f, num_over / 1.f, num_over / 1.f, 1.0);
             glUniform4f(glGetUniformLocation(Tile::draw_program, "colour"), colour.x, colour.y, colour.z, colour.w);
         }
         glBindVertexArray(VAO);
@@ -101,17 +101,23 @@ struct Tile {
 };
 
 struct GameBoard {
-    GameBoard(const glm::vec2& s)
+    GameBoard(const glm::ivec2& s)
         : shape(s)
     {
         // board.resize(shape.x * shape.y);
         for (int i = 0; i < shape.x * shape.y; i++) {
-            board.push_back(Tile({ i % static_cast<int>(shape.x), i / static_cast<int>(shape.x) }));
+            board.push_back(Tile({ i % shape.x, i / shape.x }));
         }
     }
 
     std::vector<Tile> board;
-    const glm::vec2 shape;
+    const glm::ivec2 shape;
+
+    Tile& GetTile(const glm::ivec2& pos)
+    {
+        size_t index = pos.x + pos.y * shape.y;
+        return board[index];
+    }
 
     void draw(const glm::vec2& drawable_size)
     {

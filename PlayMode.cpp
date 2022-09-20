@@ -13,6 +13,7 @@ PlayMode::PlayMode(Client& client_)
     : client(client_)
 {
     board = new GameBoard({ 10, 10 });
+    pos = glm::ivec2(rand() % board->shape.x, rand() % board->shape.y);
 }
 
 PlayMode::~PlayMode()
@@ -28,18 +29,22 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
         } else if (evt.key.keysym.sym == SDLK_LEFT) {
             left.downs += 1;
             left.pressed = true;
+            pos.x = std::max(0, pos.x - 1);
             return true;
         } else if (evt.key.keysym.sym == SDLK_RIGHT) {
             right.downs += 1;
             right.pressed = true;
+            pos.x = std::min(board->shape.x, pos.x + 1);
             return true;
         } else if (evt.key.keysym.sym == SDLK_UP) {
             up.downs += 1;
             up.pressed = true;
+            pos.y = std::max(0, pos.y - 1);
             return true;
         } else if (evt.key.keysym.sym == SDLK_DOWN) {
             down.downs += 1;
             down.pressed = true;
+            pos.y = std::min(board->shape.y, pos.y + 1);
             return true;
         } else if (evt.key.keysym.sym == SDLK_RETURN) {
             enter.downs += 1;
@@ -122,6 +127,10 @@ void PlayMode::update(float elapsed)
         }
     },
         0.0);
+
+    // update board game
+    auto& tile = board->GetTile(pos);
+    tile.num_over = 1;
 }
 
 void PlayMode::draw(glm::uvec2 const& drawable_size)
