@@ -13,7 +13,7 @@ PlayMode::PlayMode(Client& client_)
     : client(client_)
 {
     board = new GameBoard(board_size);
-    pos = glm::ivec2(rand() % board->shape.x, rand() % board->shape.y);
+    pos = glm::ivec2(rand() % board->shape.x - 1, rand() % board->shape.y - 1);
 }
 
 PlayMode::~PlayMode()
@@ -34,7 +34,7 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
         } else if (evt.key.keysym.sym == SDLK_RIGHT) {
             right.downs += 1;
             right.pressed = true;
-            pos.x = std::min(board->shape.x, pos.x + 1);
+            pos.x = std::min(board->shape.x - 1, pos.x + 1);
             return true;
         } else if (evt.key.keysym.sym == SDLK_UP) {
             up.downs += 1;
@@ -44,7 +44,7 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
         } else if (evt.key.keysym.sym == SDLK_DOWN) {
             down.downs += 1;
             down.pressed = true;
-            pos.y = std::min(board->shape.y, pos.y + 1);
+            pos.y = std::min(board->shape.y - 1, pos.y + 1);
             return true;
         } else if (evt.key.keysym.sym == SDLK_RETURN) {
             enter.downs += 1;
@@ -125,9 +125,23 @@ void PlayMode::update(float elapsed)
         }
     },
         0.0);
-
-    for (int i = 0; i < server_message.size(); i++) {
-        board->board[i].num_over = static_cast<size_t>(server_message[i]);
+    {
+        size_t num_players = 0;
+        for (int i = 0; i < server_message.size(); i++) {
+            board->board[i].num_over = static_cast<size_t>(server_message[i]);
+            num_players += static_cast<size_t>(server_message[i]);
+        }
+        Tile::max_over = num_players;
+    }
+    {
+        // colour this tile red (and not other tiles)
+        if (last_tile != nullptr) {
+            last_tile->colour_other = true;
+        }
+        auto& this_tile = board->GetTile(pos);
+        this_tile.colour_other = false; // colour with this colour
+        this_tile.colour = glm::vec4(1.f, 0.f, 0.f, 1.f);
+        last_tile = &this_tile;
     }
 }
 

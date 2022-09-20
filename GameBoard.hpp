@@ -10,6 +10,7 @@
 // got rendering help from: https://learnopengl.com/Getting-started/Hello-Triangle
 struct Tile {
     int num_over = 0;
+    inline static size_t max_over = 1; // how to determine when a tile is white (maximally coloured)
 
     constexpr static glm::vec2 block_size = glm::vec2(0.1, 0.1);
 
@@ -22,6 +23,8 @@ struct Tile {
     inline static GLuint draw_program = 0;
     GLuint VAO = 0;
     GLuint VBO = 0;
+    glm::vec4 colour;
+    bool colour_other = true;
 
     Tile(const glm::vec2& p)
         : pos(p)
@@ -88,10 +91,12 @@ struct Tile {
     void draw()
     {
         glUseProgram(Tile::draw_program);
-        {
-            glm::vec4 colour = glm::vec4(num_over / 1.f, num_over / 1.f, num_over / 1.f, 1.0);
-            glUniform4f(glGetUniformLocation(Tile::draw_program, "colour"), colour.x, colour.y, colour.z, colour.w);
+        if (colour_other) {
+            float lum = num_over / static_cast<float>(max_over);
+            colour = glm::vec4(lum, lum, lum, 1.0);
         }
+        // send colour to shader
+        glUniform4f(glGetUniformLocation(Tile::draw_program, "colour"), colour.x, colour.y, colour.z, colour.w);
         glBindVertexArray(VAO);
 
         glDrawArrays(GL_TRIANGLES, 0, 6); // 2 triangles => quad
