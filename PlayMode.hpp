@@ -8,6 +8,9 @@
 #include <deque>
 #include <vector>
 
+#define BOARD_WIDTH 10
+#define BOARD_HEIGHT 10
+
 struct PlayMode : Mode {
     PlayMode(Client& client);
     virtual ~PlayMode();
@@ -19,6 +22,8 @@ struct PlayMode : Mode {
 
     //----- game state -----
 
+    constexpr static glm::ivec2 board_size = glm::ivec2(BOARD_WIDTH, BOARD_HEIGHT);
+
     // input tracking:
     struct Button {
         uint8_t downs = 0;
@@ -29,6 +34,7 @@ struct PlayMode : Mode {
     std::string server_message;
 
     struct GameBoard* board;
+    struct Tile* last_tile = nullptr;
 
     // position on the game board
     glm::ivec2 pos;

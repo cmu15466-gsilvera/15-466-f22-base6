@@ -12,7 +12,7 @@
 PlayMode::PlayMode(Client& client_)
     : client(client_)
 {
-    board = new GameBoard({ 10, 10 });
+    board = new GameBoard(board_size);
     pos = glm::ivec2(rand() % board->shape.x, rand() % board->shape.y);
 }
 
@@ -80,10 +80,8 @@ void PlayMode::update(float elapsed)
     if (left.downs || right.downs || down.downs || up.downs || enter.downs) {
         // send a five-byte message of type 'b':
         client.connections.back().send('b');
-        client.connections.back().send(left.downs);
-        client.connections.back().send(right.downs);
-        client.connections.back().send(down.downs);
-        client.connections.back().send(up.downs);
+        client.connections.back().send(static_cast<unsigned char>(pos.x));
+        client.connections.back().send(static_cast<unsigned char>(pos.y));
         client.connections.back().send(enter.downs);
     }
 
@@ -128,9 +126,9 @@ void PlayMode::update(float elapsed)
     },
         0.0);
 
-    // update board game
-    auto& tile = board->GetTile(pos);
-    tile.num_over = 1;
+    for (int i = 0; i < server_message.size(); i++) {
+        board->board[i].num_over = static_cast<size_t>(server_message[i]);
+    }
 }
 
 void PlayMode::draw(glm::uvec2 const& drawable_size)
@@ -159,7 +157,7 @@ void PlayMode::draw(glm::uvec2 const& drawable_size)
                 glm::u8vec4(0xff, 0xff, 0xff, 0x00));
         };
 
-        draw_text(glm::vec2(-aspect + 0.1f, 0.0f), server_message, 0.09f);
+        // draw_text(glm::vec2(-aspect + 0.1f, 0.0f), server_message, 0.09f);
 
         draw_text(glm::vec2(-aspect + 0.1f, -0.9f), "(press WASD to change your total)", 0.09f);
     }

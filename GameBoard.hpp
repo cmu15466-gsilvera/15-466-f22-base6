@@ -119,6 +119,13 @@ struct GameBoard {
         return board[index];
     }
 
+    void reset()
+    {
+        for (auto& t : board) {
+            t.num_over = 0;
+        }
+    }
+
     void draw(const glm::vec2& drawable_size)
     {
         // glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
