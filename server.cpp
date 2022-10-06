@@ -4,6 +4,11 @@
 
 #include "hex_dump.hpp"
 
+#include "Game.hpp"
+
+#include <chrono>
+#include <stdexcept>
+#include <iostream>
 #include <cassert>
 #include <chrono>
 #include <iostream>
@@ -103,60 +108,46 @@ int main(int argc, char** argv)
                         assert(f != players.end());
                         PlayerInfo& player = f->second;
 
-                        // handle messages from client:
-                        // TODO: update for the sorts of messages your clients send
-                        const size_t msg_len = 4;
-                        while (c->recv_buffer.size() >= msg_len) {
-                            // expecting five-byte messages 'b' (left count) (right count) (down count) (up count)
-                            char type = c->recv_buffer[0];
-                            if (type != 'b') {
-                                std::cout << " message of non-'b' type received from client!" << std::endl;
-                                // shut down client connection:
-                                c->close();
-                                return;
-                            }
-                            uint8_t pos_x = c->recv_buffer[1];
-                            uint8_t pos_y = c->recv_buffer[2];
-                            uint8_t enter_count = c->recv_buffer[3];
+					remove_connection(c);
 
-                            player.pos_x = pos_x;
-                            player.pos_y = pos_y;
-                            player.enter_presses += enter_count;
+				} else { assert(evt == Connection::OnRecv);
+					//got data from client:
+					//std::cout << "current buffer:\n" << hex_dump(c->recv_buffer); std::cout.flush(); //DEBUG
 
-                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + msg_len);
-                        }
-                    }
-                },
-                    remain);
-            }
+					//look up in players list:
+					auto f = connection_to_player.find(c);
+					assert(f != connection_to_player.end());
+					Player &player = *f->second;
 
-            // update current game state
-            // TODO: replace with *your* game state update
-            constexpr size_t msg_len = BOARD_WIDTH * BOARD_HEIGHT;
-            char board[msg_len] = { 0 };
+					//handle messages from client:
+					try {
+						bool handled_message;
+						do {
+							handled_message = false;
+							if (player.controls.recv_controls_message(c)) handled_message = true;
+							//TODO: extend for more message types as needed
+						} while (handled_message);
+					} catch (std::exception const &e) {
+						std::cout << "Disconnecting client:" << e.what() << std::endl;
+						c->close();
+						remove_connection(c);
+					}
+				}
+			}, remain);
+		}
 
-            for (auto& [c, player] : players) {
-                size_t idx = player.pos_x + player.pos_y * BOARD_WIDTH;
-                // std::cout << "position: " << player.pos_x << " " << player.pos_y << std::endl;
-                board[idx]++;
-            }
-            std::string status_message(board, msg_len);
-            // std::cout << status_message << std::endl; // DEBUG
+		//update current game state
+		game.update(Game::Tick);
 
-            // send updated game state to all clients
-            // TODO: update for your game state
-            for (auto& [c, player] : players) {
-                (void)player; // work around "unused variable" warning on whatever g++ github actions uses
-                // send an update starting with 'm', a 24-bit size, and a blob of text:
-                c->send('m');
-                c->send(uint8_t(status_message.size() >> 16));
-                c->send(uint8_t((status_message.size() >> 8) % 256));
-                c->send(uint8_t(status_message.size() % 256));
-                c->send_buffer.insert(c->send_buffer.end(), status_message.begin(), status_message.end());
-            }
-        }
+		//send updated game state to all clients
+		for (auto &[c, player] : connection_to_player) {
+			game.send_state_message(c, player);
+		}
 
-        return 0;
+	}
+
+
+	return 0;
 
 #ifdef _WIN32
     } catch (std::exception const& e) {

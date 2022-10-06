@@ -2,6 +2,7 @@
 
 #include "Connection.hpp"
 #include "GameBoard.hpp"
+#include "Game.hpp"
 
 #include <glm/glm.hpp>
 
@@ -23,6 +24,11 @@ struct PlayMode : Mode {
     //----- game state -----
 
     constexpr static glm::ivec2 board_size = glm::ivec2(BOARD_WIDTH, BOARD_HEIGHT);
+	//input tracking for local player:
+	Player::Controls controls;
+
+	//latest game state (from server):
+	Game game;
 
     // input tracking:
     struct Button {

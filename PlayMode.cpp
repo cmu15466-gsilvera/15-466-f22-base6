@@ -6,8 +6,10 @@
 #include "hex_dump.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <random>
+#include <array>
 
 PlayMode::PlayMode(Client& client_)
     : client(client_)
