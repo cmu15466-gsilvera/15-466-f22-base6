@@ -1,5 +1,6 @@
 
 #include "Connection.hpp"
+#include "PlayMode.hpp" // BOARD_WIDTH, BOARD_HEIGHT
 
 #include "hex_dump.hpp"
 
