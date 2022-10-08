@@ -1,14 +1,10 @@
 
 #include "Connection.hpp"
-#include "PlayMode.hpp" // BOARD_WIDTH, BOARD_HEIGHT
 
 #include "hex_dump.hpp"
 
 #include "Game.hpp"
 
-#include <chrono>
-#include <stdexcept>
-#include <iostream>
 #include <cassert>
 #include <chrono>
 #include <iostream>
@@ -49,105 +45,82 @@ int main(int argc, char** argv)
         Server server(argv[1]);
 
         //------------ main loop ------------
-        constexpr float ServerTick = 1.0f / 10.0f; // TODO: set a server tick that makes sense for your game
 
-        // server state:
-
-        // per-client state:
-        struct PlayerInfo {
-            PlayerInfo()
-            {
-                static uint32_t next_player_id = 1;
-                name = "Player" + std::to_string(next_player_id);
-                next_player_id += 1;
-            }
-            std::string name;
-
-            uint32_t pos_x = 0;
-            uint32_t pos_y = 0;
-            uint32_t enter_presses = 0;
-
-            int32_t total = 0;
-        };
-        std::unordered_map<Connection*, PlayerInfo> players;
+        // keep track of which connection is controlling which player:
+        std::unordered_map<Connection*, Player*> connection_to_player;
+        // keep track of game state:
+        Game game;
 
         while (true) {
-            static auto next_tick = std::chrono::steady_clock::now() + std::chrono::duration<double>(ServerTick);
+            static auto next_tick = std::chrono::steady_clock::now() + std::chrono::duration<double>(Game::Tick);
             // process incoming data from clients until a tick has elapsed:
             while (true) {
                 auto now = std::chrono::steady_clock::now();
                 double remain = std::chrono::duration<double>(next_tick - now).count();
                 if (remain < 0.0) {
-                    next_tick += std::chrono::duration<double>(ServerTick);
+                    next_tick += std::chrono::duration<double>(Game::Tick);
                     break;
                 }
+
+                // helper used on client close (due to quit) and server close (due to error):
+                auto remove_connection = [&](Connection* c) {
+                    auto f = connection_to_player.find(c);
+                    assert(f != connection_to_player.end());
+                    game.remove_player(f->second);
+                    connection_to_player.erase(f);
+                };
+
                 server.poll([&](Connection* c, Connection::Event evt) {
                     if (evt == Connection::OnOpen) {
                         // client connected:
 
                         // create some player info for them:
-                        players.emplace(c, PlayerInfo());
+                        connection_to_player.emplace(c, game.spawn_player());
 
                     } else if (evt == Connection::OnClose) {
                         // client disconnected:
 
-                        // remove them from the players list:
-                        auto f = players.find(c);
-                        assert(f != players.end());
-                        players.erase(f);
+                        remove_connection(c);
 
                     } else {
                         assert(evt == Connection::OnRecv);
                         // got data from client:
-                        std::cout << "got bytes:\n"
-                                  << hex_dump(c->recv_buffer);
-                        std::cout.flush();
+                        // std::cout << "current buffer:\n" << hex_dump(c->recv_buffer); std::cout.flush(); //DEBUG
 
                         // look up in players list:
-                        auto f = players.find(c);
-                        assert(f != players.end());
-                        PlayerInfo& player = f->second;
+                        auto f = connection_to_player.find(c);
+                        assert(f != connection_to_player.end());
+                        Player& player = *f->second;
 
-					remove_connection(c);
+                        // handle messages from client:
+                        try {
+                            bool handled_message;
+                            do {
+                                handled_message = false;
+                                if (player.controls.recv_controls_message(c))
+                                    handled_message = true;
+                                // TODO: extend for more message types as needed
+                            } while (handled_message);
+                        } catch (std::exception const& e) {
+                            std::cout << "Disconnecting client:" << e.what() << std::endl;
+                            c->close();
+                            remove_connection(c);
+                        }
+                    }
+                },
+                    remain);
+            }
 
-				} else { assert(evt == Connection::OnRecv);
-					//got data from client:
-					//std::cout << "current buffer:\n" << hex_dump(c->recv_buffer); std::cout.flush(); //DEBUG
+            // update current game state
+            game.update(Game::Tick);
 
-					//look up in players list:
-					auto f = connection_to_player.find(c);
-					assert(f != connection_to_player.end());
-					Player &player = *f->second;
+            // send updated game state to all clients
+            for (auto& [c, player] : connection_to_player) {
+                game.send_state_message(c, player);
+            }
+        }
 
-					//handle messages from client:
-					try {
-						bool handled_message;
-						do {
-							handled_message = false;
-							if (player.controls.recv_controls_message(c)) handled_message = true;
-							//TODO: extend for more message types as needed
-						} while (handled_message);
-					} catch (std::exception const &e) {
-						std::cout << "Disconnecting client:" << e.what() << std::endl;
-						c->close();
-						remove_connection(c);
-					}
-				}
-			}, remain);
-		}
-
-		//update current game state
-		game.update(Game::Tick);
-
-		//send updated game state to all clients
-		for (auto &[c, player] : connection_to_player) {
-			game.send_state_message(c, player);
-		}
-
-	}
-
-
-	return 0;
+        return 0;
 
 #ifdef _WIN32
     } catch (std::exception const& e) {
