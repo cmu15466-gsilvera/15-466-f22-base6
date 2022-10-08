@@ -29,7 +29,7 @@ void Player::Controls::send_controls_message(Connection *connection_) const {
 	send_button(right);
 	send_button(up);
 	send_button(down);
-	send_button(enter);
+	send_button(jump);
 }
 
 bool Player::Controls::recv_controls_message(Connection *connection_) {
@@ -63,7 +63,7 @@ bool Player::Controls::recv_controls_message(Connection *connection_) {
 	recv_button(recv_buffer[4+1], &right);
 	recv_button(recv_buffer[4+2], &up);
 	recv_button(recv_buffer[4+3], &down);
-	recv_button(recv_buffer[4+4], &enter);
+	recv_button(recv_buffer[4+4], &jump);
 
 	//delete message from buffer:
 	recv_buffer.erase(recv_buffer.begin(), recv_buffer.begin() + 4 + size);
@@ -147,7 +147,7 @@ void Game::update(float elapsed) {
 		p.controls.right.downs = 0;
 		p.controls.up.downs = 0;
 		p.controls.down.downs = 0;
-		p.controls.enter.downs = 0;
+		p.controls.jump.downs = 0;
 	}
 
 	//collision resolution:

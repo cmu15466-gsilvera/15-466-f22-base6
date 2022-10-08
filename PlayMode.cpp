@@ -1,8 +1,8 @@
 #include "PlayMode.hpp"
 
 #include "DrawLines.hpp"
-#include "data_path.hpp"
 #include "gl_errors.hpp"
+#include "data_path.hpp"
 #include "hex_dump.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
@@ -11,177 +11,172 @@
 #include <random>
 #include <array>
 
-PlayMode::PlayMode(Client& client_)
-    : client(client_)
-{
-    board = new GameBoard(board_size);
-    pos = glm::ivec2(rand() % board->shape.x - 1, rand() % board->shape.y - 1);
+PlayMode::PlayMode(Client &client_) : client(client_) {
 }
 
-PlayMode::~PlayMode()
-{
+PlayMode::~PlayMode() {
 }
 
-bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
-{
+bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
 
-    if (evt.type == SDL_KEYDOWN) {
-        if (evt.key.repeat) {
-            // ignore repeats
-        } else if (evt.key.keysym.sym == SDLK_LEFT) {
-            left.downs += 1;
-            left.pressed = true;
-            pos.x = std::max(0, pos.x - 1);
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_RIGHT) {
-            right.downs += 1;
-            right.pressed = true;
-            pos.x = std::min(board->shape.x - 1, pos.x + 1);
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_UP) {
-            up.downs += 1;
-            up.pressed = true;
-            pos.y = std::max(0, pos.y - 1);
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_DOWN) {
-            down.downs += 1;
-            down.pressed = true;
-            pos.y = std::min(board->shape.y - 1, pos.y + 1);
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_RETURN) {
-            enter.downs += 1;
-            enter.pressed = true;
-            return true;
-        }
-    } else if (evt.type == SDL_KEYUP) {
-        if (evt.key.keysym.sym == SDLK_LEFT) {
-            left.pressed = false;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_RIGHT) {
-            right.pressed = false;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_UP) {
-            up.pressed = false;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_DOWN) {
-            down.pressed = false;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_RETURN) {
-            enter.pressed = false;
-            return true;
-        }
-    }
+	if (evt.type == SDL_KEYDOWN) {
+		if (evt.key.repeat) {
+			//ignore repeats
+		} else if (evt.key.keysym.sym == SDLK_a) {
+			controls.left.downs += 1;
+			controls.left.pressed = true;
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_d) {
+			controls.right.downs += 1;
+			controls.right.pressed = true;
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_w) {
+			controls.up.downs += 1;
+			controls.up.pressed = true;
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_s) {
+			controls.down.downs += 1;
+			controls.down.pressed = true;
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_SPACE) {
+			controls.jump.downs += 1;
+			controls.jump.pressed = true;
+			return true;
+		}
+	} else if (evt.type == SDL_KEYUP) {
+		if (evt.key.keysym.sym == SDLK_a) {
+			controls.left.pressed = false;
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_d) {
+			controls.right.pressed = false;
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_w) {
+			controls.up.pressed = false;
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_s) {
+			controls.down.pressed = false;
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_SPACE) {
+			controls.jump.pressed = false;
+			return true;
+		}
+	}
 
-    return false;
+	return false;
 }
 
-void PlayMode::update(float elapsed)
-{
+void PlayMode::update(float elapsed) {
 
-    // queue data for sending to server:
-    if (left.downs || right.downs || down.downs || up.downs || enter.downs) {
-        // send a five-byte message of type 'b':
-        client.connections.back().send('b');
-        client.connections.back().send(static_cast<unsigned char>(pos.x));
-        client.connections.back().send(static_cast<unsigned char>(pos.y));
-        client.connections.back().send(enter.downs);
-    }
+	//queue data for sending to server:
+	controls.send_controls_message(&client.connection);
 
-    // reset button press counters:
-    left.downs = 0;
-    right.downs = 0;
-    up.downs = 0;
-    down.downs = 0;
-    enter.downs = 0;
+	//reset button press counters:
+	controls.left.downs = 0;
+	controls.right.downs = 0;
+	controls.up.downs = 0;
+	controls.down.downs = 0;
+	controls.jump.downs = 0;
 
-    // send/receive data:
-    client.poll([this](Connection* c, Connection::Event event) {
-        if (event == Connection::OnOpen) {
-            std::cout << "[" << c->socket << "] opened" << std::endl;
-        } else if (event == Connection::OnClose) {
-            std::cout << "[" << c->socket << "] closed (!)" << std::endl;
-            throw std::runtime_error("Lost connection to server!");
-        } else {
-            assert(event == Connection::OnRecv);
-            std::cout << "[" << c->socket << "] recv'd data. Current buffer:\n"
-                      << hex_dump(c->recv_buffer);
-            std::cout.flush();
-            // expecting message(s) like 'm' + 3-byte length + length bytes of text:
-            while (c->recv_buffer.size() >= 4) {
-                std::cout << "[" << c->socket << "] recv'd data. Current buffer:\n"
-                          << hex_dump(c->recv_buffer);
-                std::cout.flush();
-                char type = c->recv_buffer[0];
-                if (type != 'm') {
-                    throw std::runtime_error("Server sent unknown message type '" + std::to_string(type) + "'");
-                }
-                uint32_t size = ((uint32_t(c->recv_buffer[1]) << 16) | (uint32_t(c->recv_buffer[2]) << 8) | (uint32_t(c->recv_buffer[3])));
-                if (c->recv_buffer.size() < 4 + size)
-                    break; // if whole message isn't here, can't process
-                // whole message *is* here, so set current server message:
-                server_message = std::string(c->recv_buffer.begin() + 4, c->recv_buffer.begin() + 4 + size);
-
-                // and consume this part of the buffer:
-                c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + 4 + size);
-            }
-        }
-    },
-        0.0);
-    {
-        size_t num_players = 0;
-        for (int i = 0; i < server_message.size(); i++) {
-            board->board[i].num_over = static_cast<size_t>(server_message[i]);
-            num_players += static_cast<size_t>(server_message[i]);
-        }
-        Tile::max_over = num_players;
-    }
-    {
-        // colour this tile red (and not other tiles)
-        if (last_tile != nullptr) {
-            last_tile->colour_other = true;
-        }
-        auto& this_tile = board->GetTile(pos);
-        this_tile.colour_other = false; // colour with this colour
-        this_tile.colour = glm::vec4(1.f, 0.f, 0.f, 1.f);
-        last_tile = &this_tile;
-    }
+	//send/receive data:
+	client.poll([this](Connection *c, Connection::Event event){
+		if (event == Connection::OnOpen) {
+			std::cout << "[" << c->socket << "] opened" << std::endl;
+		} else if (event == Connection::OnClose) {
+			std::cout << "[" << c->socket << "] closed (!)" << std::endl;
+			throw std::runtime_error("Lost connection to server!");
+		} else { assert(event == Connection::OnRecv);
+			//std::cout << "[" << c->socket << "] recv'd data. Current buffer:\n" << hex_dump(c->recv_buffer); std::cout.flush(); //DEBUG
+			bool handled_message;
+			try {
+				do {
+					handled_message = false;
+					if (game.recv_state_message(c)) handled_message = true;
+				} while (handled_message);
+			} catch (std::exception const &e) {
+				std::cerr << "[" << c->socket << "] malformed message from server: " << e.what() << std::endl;
+				//quit the game:
+				throw e;
+			}
+		}
+	}, 0.0);
 }
 
-void PlayMode::draw(glm::uvec2 const& drawable_size)
-{
-    glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+void PlayMode::draw(glm::uvec2 const &drawable_size) {
 
-    { // use DrawLines to overlay some text:
-        glDisable(GL_DEPTH_TEST);
-        float aspect = float(drawable_size.x) / float(drawable_size.y);
-        DrawLines lines(glm::mat4(
-            1.0f / aspect, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f));
+	static std::array< glm::vec2, 16 > const circle = [](){
+		std::array< glm::vec2, 16 > ret;
+		for (uint32_t a = 0; a < ret.size(); ++a) {
+			float ang = a / float(ret.size()) * 2.0f * float(M_PI);
+			ret[a] = glm::vec2(std::cos(ang), std::sin(ang));
+		}
+		return ret;
+	}();
 
-        auto draw_text = [&](glm::vec2 const& at, std::string const& text, float H) {
-            lines.draw_text(text,
-                glm::vec3(at.x, at.y, 0.0),
-                glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-                glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-            float ofs = 2.0f / drawable_size.y;
-            lines.draw_text(text,
-                glm::vec3(at.x + ofs, at.y + ofs, 0.0),
-                glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-                glm::u8vec4(0xff, 0xff, 0xff, 0x00));
-        };
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glDisable(GL_DEPTH_TEST);
+	
+	//figure out view transform to center the arena:
+	float aspect = float(drawable_size.x) / float(drawable_size.y);
+	float scale = std::min(
+		2.0f * aspect / (Game::ArenaMax.x - Game::ArenaMin.x + 2.0f * Game::PlayerRadius),
+		2.0f / (Game::ArenaMax.y - Game::ArenaMin.y + 2.0f * Game::PlayerRadius)
+	);
+	glm::vec2 offset = -0.5f * (Game::ArenaMax + Game::ArenaMin);
 
-        // draw_text(glm::vec2(-aspect + 0.1f, 0.0f), server_message, 0.09f);
+	glm::mat4 world_to_clip = glm::mat4(
+		scale / aspect, 0.0f, 0.0f, offset.x,
+		0.0f, scale, 0.0f, offset.y,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f
+	);
 
-        draw_text(glm::vec2(-aspect + 0.1f, -0.9f), "(press WASD to change your total)", 0.09f);
-    }
+	{
+		DrawLines lines(world_to_clip);
 
-    // draw game board
-    {
-        board->draw(drawable_size);
-    }
+		//helper:
+		auto draw_text = [&](glm::vec2 const &at, std::string const &text, float H) {
+			lines.draw_text(text,
+				glm::vec3(at.x, at.y, 0.0),
+				glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
+				glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+			float ofs = (1.0f / scale) / drawable_size.y;
+			lines.draw_text(text,
+				glm::vec3(at.x + ofs, at.y + ofs, 0.0),
+				glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
+				glm::u8vec4(0xff, 0xff, 0xff, 0x00));
+		};
 
-    GL_ERRORS();
+		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMin.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
+		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMax.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
+		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMin.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
+		lines.draw(glm::vec3(Game::ArenaMax.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
+
+		for (auto const &player : game.players) {
+			glm::u8vec4 col = glm::u8vec4(player.color.x*255, player.color.y*255, player.color.z*255, 0xff);
+			if (&player == &game.players.front()) {
+				//mark current player (which server sends first):
+				lines.draw(
+					glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f,-0.5f), 0.0f),
+					glm::vec3(player.position + Game::PlayerRadius * glm::vec2( 0.5f, 0.5f), 0.0f),
+					col
+				);
+				lines.draw(
+					glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f, 0.5f), 0.0f),
+					glm::vec3(player.position + Game::PlayerRadius * glm::vec2( 0.5f,-0.5f), 0.0f),
+					col
+				);
+			}
+			for (uint32_t a = 0; a < circle.size(); ++a) {
+				lines.draw(
+					glm::vec3(player.position + Game::PlayerRadius * circle[a], 0.0f),
+					glm::vec3(player.position + Game::PlayerRadius * circle[(a+1)%circle.size()], 0.0f),
+					col
+				);
+			}
+
+			draw_text(player.position + glm::vec2(0.0f, -0.1f + Game::PlayerRadius), player.name, 0.09f);
+		}
+	}
+	GL_ERRORS();
 }

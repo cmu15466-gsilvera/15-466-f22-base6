@@ -26,15 +26,9 @@ struct Button {
 
 //state of one player in the game:
 struct Player {
-	Player()
-	{
-		static uint32_t next_player_id = 1;
-		name = "Player" + std::to_string(next_player_id);
-		next_player_id += 1;
-	}
 	//player inputs (sent from client):
 	struct Controls {
-		Button left, right, up, down, enter;
+		Button left, right, up, down, jump;
 
 		void send_controls_message(Connection *connection) const;
 
@@ -47,8 +41,6 @@ struct Player {
 	//player state (sent from server):
 	glm::vec2 position = glm::vec2(0.0f, 0.0f);
 	glm::vec2 velocity = glm::vec2(0.0f, 0.0f);
-	uint32_t enter_presses = 0;
-
 
 	glm::vec3 color = glm::vec3(1.0f, 1.0f, 1.0f);
 	std::string name = "";
