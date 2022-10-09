@@ -91,7 +91,7 @@ Player* Game::spawn_player()
     Player& player = players.back();
 
     // random point in the middle area of the arena:
-    player.position = glm::ivec2(rand() % board->shape.x, rand() % board->shape.y);
+    player.position = glm::ivec2(rand() % board->shape.x - 1, rand() % board->shape.y - 1);
 
     do {
         player.color.r = mt() / float(mt.max());
@@ -120,6 +120,7 @@ void Game::remove_player(Player* player)
 
 void Game::update(float elapsed)
 {
+    board->reset();
     // position/velocity update:
     for (auto& p : players) {
         glm::ivec2 dir = glm::vec2(0, 0);
@@ -134,8 +135,8 @@ void Game::update(float elapsed)
         p.position += dir;
 
         // clamp within bounds
-        p.position.x = std::min(std::max(0, p.position.x), board->shape.x);
-        p.position.y = std::min(std::max(0, p.position.y), board->shape.y);
+        p.position.x = std::min(std::max(0, p.position.x), board->shape.x - 1);
+        p.position.y = std::min(std::max(0, p.position.y), board->shape.y - 1);
 
         // reset 'downs' since controls have been handled:
         p.controls.left.downs = 0;
@@ -144,9 +145,22 @@ void Game::update(float elapsed)
         p.controls.down.downs = 0;
         p.controls.enter.downs = 0;
 
-        // update board game
-        auto& tile = board->GetTile(p.position);
-        tile.num_over = 1;
+        Tile::max_over = players.size();
+        {
+            // update the num_over
+            size_t index = p.position.x + BOARD_WIDTH * p.position.y;
+            board->board[index].num_over++;
+        }
+        {
+            // colour this tile red (and not other tiles)
+            if (last_tile != nullptr) {
+                last_tile->colour_other = true;
+            }
+            auto& this_tile = board->GetTile(p.position);
+            this_tile.colour_other = false; // colour with this colour
+            this_tile.colour = glm::vec4(1.f, 0.f, 0.f, 1.f);
+            last_tile = &this_tile;
+        }
     }
 }
 

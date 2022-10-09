@@ -64,6 +64,7 @@ struct Game {
 
     constexpr static glm::ivec2 board_size = glm::ivec2(BOARD_WIDTH, BOARD_HEIGHT);
     struct GameBoard* board;
+    struct Tile* last_tile;
 
     // constants:
     // the update rate on the server:
