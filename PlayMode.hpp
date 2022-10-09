@@ -1,12 +1,15 @@
 #include "Mode.hpp"
 
 #include "Connection.hpp"
-#include "Game.hpp"
+#include "GameBoard.hpp"
 
 #include <glm/glm.hpp>
 
 #include <deque>
 #include <vector>
+
+#define BOARD_WIDTH 10
+#define BOARD_HEIGHT 10
 
 struct PlayMode : Mode {
     PlayMode(Client& client);
@@ -19,14 +22,22 @@ struct PlayMode : Mode {
 
     //----- game state -----
 
-    // input tracking for local player:
-    Player::Controls controls;
+    constexpr static glm::ivec2 board_size = glm::ivec2(BOARD_WIDTH, BOARD_HEIGHT);
 
-    // latest game state (from server):
-    Game game;
+    // input tracking:
+    struct Button {
+        uint8_t downs = 0;
+        uint8_t pressed = 0;
+    } left, right, down, up, enter;
 
     // last message from server:
     std::string server_message;
+
+    struct GameBoard* board;
+    struct Tile* last_tile = nullptr;
+
+    // position on the game board
+    glm::ivec2 pos;
 
     // connection to server:
     Client& client;

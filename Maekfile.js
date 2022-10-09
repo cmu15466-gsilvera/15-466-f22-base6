@@ -150,7 +150,6 @@ const server_names = [
 ];
 
 const common_names = [
-	maek.CPP('Game.cpp'),
 	maek.CPP('data_path.cpp'),
 	maek.CPP('PathFont.cpp'),
 	maek.CPP('PathFont-font.cpp'),

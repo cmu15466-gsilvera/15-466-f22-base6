@@ -1,9 +1,8 @@
 
 #include "Connection.hpp"
+#include "PlayMode.hpp" // BOARD_WIDTH, BOARD_HEIGHT
 
 #include "hex_dump.hpp"
-
-#include "Game.hpp"
 
 #include <cassert>
 #include <chrono>
@@ -45,66 +44,86 @@ int main(int argc, char** argv)
         Server server(argv[1]);
 
         //------------ main loop ------------
+        constexpr float ServerTick = 1.0f / 10.0f; // TODO: set a server tick that makes sense for your game
 
-        // keep track of which connection is controlling which player:
-        std::unordered_map<Connection*, Player*> connection_to_player;
-        // keep track of game state:
-        Game game;
+        // server state:
+
+        // per-client state:
+        struct PlayerInfo {
+            PlayerInfo()
+            {
+                static uint32_t next_player_id = 1;
+                name = "Player" + std::to_string(next_player_id);
+                next_player_id += 1;
+            }
+            std::string name;
+
+            uint32_t pos_x = 0;
+            uint32_t pos_y = 0;
+            uint32_t enter_presses = 0;
+
+            int32_t total = 0;
+        };
+        std::unordered_map<Connection*, PlayerInfo> players;
 
         while (true) {
-            static auto next_tick = std::chrono::steady_clock::now() + std::chrono::duration<double>(Game::Tick);
+            static auto next_tick = std::chrono::steady_clock::now() + std::chrono::duration<double>(ServerTick);
             // process incoming data from clients until a tick has elapsed:
             while (true) {
                 auto now = std::chrono::steady_clock::now();
                 double remain = std::chrono::duration<double>(next_tick - now).count();
                 if (remain < 0.0) {
-                    next_tick += std::chrono::duration<double>(Game::Tick);
+                    next_tick += std::chrono::duration<double>(ServerTick);
                     break;
                 }
-
-                // helper used on client close (due to quit) and server close (due to error):
-                auto remove_connection = [&](Connection* c) {
-                    auto f = connection_to_player.find(c);
-                    assert(f != connection_to_player.end());
-                    game.remove_player(f->second);
-                    connection_to_player.erase(f);
-                };
-
                 server.poll([&](Connection* c, Connection::Event evt) {
                     if (evt == Connection::OnOpen) {
                         // client connected:
 
                         // create some player info for them:
-                        connection_to_player.emplace(c, game.spawn_player());
+                        players.emplace(c, PlayerInfo());
 
                     } else if (evt == Connection::OnClose) {
                         // client disconnected:
 
-                        remove_connection(c);
+                        // remove them from the players list:
+                        auto f = players.find(c);
+                        assert(f != players.end());
+                        players.erase(f);
 
                     } else {
                         assert(evt == Connection::OnRecv);
                         // got data from client:
-                        // std::cout << "current buffer:\n" << hex_dump(c->recv_buffer); std::cout.flush(); //DEBUG
+                        std::cout << "got bytes:\n"
+                                  << hex_dump(c->recv_buffer);
+                        std::cout.flush();
 
                         // look up in players list:
-                        auto f = connection_to_player.find(c);
-                        assert(f != connection_to_player.end());
-                        Player& player = *f->second;
+                        auto f = players.find(c);
+                        assert(f != players.end());
+                        PlayerInfo& player = f->second;
 
                         // handle messages from client:
-                        try {
-                            bool handled_message;
-                            do {
-                                handled_message = false;
-                                if (player.controls.recv_controls_message(c))
-                                    handled_message = true;
-                                // TODO: extend for more message types as needed
-                            } while (handled_message);
-                        } catch (std::exception const& e) {
-                            std::cout << "Disconnecting client:" << e.what() << std::endl;
-                            c->close();
-                            remove_connection(c);
+                        // TODO: update for the sorts of messages your clients send
+                        const size_t msg_len = 4;
+                        while (c->recv_buffer.size() >= msg_len) {
+                            // expecting five-byte messages 'b' (left count) (right count) (down count) (up count)
+                            char type = c->recv_buffer[0];
+                            if (type != 'b') {
+                                std::cout << " message of non-'b' type received from client!" << std::endl;
+                                // shut down client connection:
+                                c->close();
+                                return;
+                            }
+                            uint8_t pos_x = c->recv_buffer[1];
+                            uint8_t pos_y = c->recv_buffer[2];
+                            uint8_t enter_count = c->recv_buffer[3];
+
+                            player.pos_x = pos_x;
+                            player.pos_y = pos_y;
+                            player.enter_presses += enter_count;
+
+                            c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + msg_len);
                         }
                     }
                 },
@@ -112,11 +131,28 @@ int main(int argc, char** argv)
             }
 
             // update current game state
-            game.update(Game::Tick);
+            // TODO: replace with *your* game state update
+            constexpr size_t msg_len = BOARD_WIDTH * BOARD_HEIGHT;
+            char board[msg_len] = { 0 };
+
+            for (auto& [c, player] : players) {
+                size_t idx = player.pos_x + player.pos_y * BOARD_WIDTH;
+                // std::cout << "position: " << player.pos_x << " " << player.pos_y << std::endl;
+                board[idx]++;
+            }
+            std::string status_message(board, msg_len);
+            // std::cout << status_message << std::endl; // DEBUG
 
             // send updated game state to all clients
-            for (auto& [c, player] : connection_to_player) {
-                game.send_state_message(c, player);
+            // TODO: update for your game state
+            for (auto& [c, player] : players) {
+                (void)player; // work around "unused variable" warning on whatever g++ github actions uses
+                // send an update starting with 'm', a 24-bit size, and a blob of text:
+                c->send('m');
+                c->send(uint8_t(status_message.size() >> 16));
+                c->send(uint8_t((status_message.size() >> 8) % 256));
+                c->send(uint8_t(status_message.size() % 256));
+                c->send_buffer.insert(c->send_buffer.end(), status_message.begin(), status_message.end());
             }
         }
 
