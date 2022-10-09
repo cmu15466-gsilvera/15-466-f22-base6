@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 
+#include "GameBoard.hpp"
 #include <list>
 #include <random>
 #include <string>
@@ -39,8 +40,7 @@ struct Player {
     } controls;
 
     // player state (sent from server):
-    glm::vec2 position = glm::vec2(0.0f, 0.0f);
-    glm::vec2 velocity = glm::vec2(0.0f, 0.0f);
+    glm::ivec2 position = glm::vec2(0, 0);
 
     glm::vec3 color = glm::vec3(1.0f, 1.0f, 1.0f);
     std::string name = "";
@@ -59,18 +59,11 @@ struct Game {
     // state update function:
     void update(float elapsed);
 
+    struct GameBoard* board;
+
     // constants:
     // the update rate on the server:
     inline static constexpr float Tick = 1.0f / 30.0f;
-
-    // arena size:
-    inline static constexpr glm::vec2 ArenaMin = glm::vec2(-0.75f, -1.0f);
-    inline static constexpr glm::vec2 ArenaMax = glm::vec2(0.75f, 1.0f);
-
-    // player constants:
-    inline static constexpr float PlayerRadius = 0.06f;
-    inline static constexpr float PlayerSpeed = 2.0f;
-    inline static constexpr float PlayerAccelHalflife = 0.25f;
 
     //---- communication helpers ----
 
