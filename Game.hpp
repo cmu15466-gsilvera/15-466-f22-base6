@@ -28,7 +28,7 @@ struct Button {
 struct Player {
     // player inputs (sent from client):
     struct Controls {
-        Button left, right, up, down, jump;
+        Button left, right, up, down, enter;
 
         void send_controls_message(Connection* connection) const;
 
