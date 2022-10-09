@@ -82,7 +82,7 @@ bool Player::Controls::recv_controls_message(Connection* connection_)
 Game::Game()
     : mt(0x15466666)
 {
-    board = new GameBoard({ 10, 10 });
+    board = new GameBoard(board_size);
 }
 
 Player* Game::spawn_player()

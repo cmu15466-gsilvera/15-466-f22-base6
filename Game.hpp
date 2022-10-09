@@ -7,6 +7,9 @@
 #include <random>
 #include <string>
 
+#define BOARD_WIDTH 10
+#define BOARD_HEIGHT 10
+
 struct Connection;
 
 // Game state, separate from rendering.
@@ -59,6 +62,7 @@ struct Game {
     // state update function:
     void update(float elapsed);
 
+    constexpr static glm::ivec2 board_size = glm::ivec2(BOARD_WIDTH, BOARD_HEIGHT);
     struct GameBoard* board;
 
     // constants:
