@@ -2,6 +2,7 @@
 
 #include "Connection.hpp"
 #include "Game.hpp"
+#include "GameBoard.hpp"
 
 #include <glm/glm.hpp>
 
@@ -24,6 +25,8 @@ struct PlayMode : Mode {
 
     // latest game state (from server):
     Game game;
+
+    struct GameBoard* board;
 
     // last message from server:
     std::string server_message;

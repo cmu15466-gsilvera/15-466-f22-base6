@@ -14,6 +14,7 @@
 PlayMode::PlayMode(Client& client_)
     : client(client_)
 {
+    board = new GameBoard({ 10, 10 });
 }
 
 PlayMode::~PlayMode()
@@ -26,19 +27,19 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
     if (evt.type == SDL_KEYDOWN) {
         if (evt.key.repeat) {
             // ignore repeats
-        } else if (evt.key.keysym.sym == SDLK_a) {
+        } else if (evt.key.keysym.sym == SDLK_LEFT) {
             controls.left.downs += 1;
             controls.left.pressed = true;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_d) {
+        } else if (evt.key.keysym.sym == SDLK_RIGHT) {
             controls.right.downs += 1;
             controls.right.pressed = true;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_w) {
+        } else if (evt.key.keysym.sym == SDLK_UP) {
             controls.up.downs += 1;
             controls.up.pressed = true;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_s) {
+        } else if (evt.key.keysym.sym == SDLK_DOWN) {
             controls.down.downs += 1;
             controls.down.pressed = true;
             return true;
@@ -48,16 +49,16 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
             return true;
         }
     } else if (evt.type == SDL_KEYUP) {
-        if (evt.key.keysym.sym == SDLK_a) {
+        if (evt.key.keysym.sym == SDLK_LEFT) {
             controls.left.pressed = false;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_d) {
+        } else if (evt.key.keysym.sym == SDLK_RIGHT) {
             controls.right.pressed = false;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_w) {
+        } else if (evt.key.keysym.sym == SDLK_UP) {
             controls.up.pressed = false;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_s) {
+        } else if (evt.key.keysym.sym == SDLK_DOWN) {
             controls.down.pressed = false;
             return true;
         } else if (evt.key.keysym.sym == SDLK_RETURN) {
@@ -112,15 +113,6 @@ void PlayMode::update(float elapsed)
 void PlayMode::draw(glm::uvec2 const& drawable_size)
 {
 
-    static std::array<glm::vec2, 16> const circle = []() {
-        std::array<glm::vec2, 16> ret;
-        for (uint32_t a = 0; a < ret.size(); ++a) {
-            float ang = a / float(ret.size()) * 2.0f * float(M_PI);
-            ret[a] = glm::vec2(std::cos(ang), std::sin(ang));
-        }
-        return ret;
-    }();
-
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_DEPTH_TEST);
@@ -138,49 +130,10 @@ void PlayMode::draw(glm::uvec2 const& drawable_size)
         0.0f, 0.0f, 1.0f, 0.0f,
         0.0f, 0.0f, 0.0f, 1.0f);
 
+    // draw game board
     {
-        DrawLines lines(world_to_clip);
-
-        // helper:
-        auto draw_text = [&](glm::vec2 const& at, std::string const& text, float H) {
-            lines.draw_text(text,
-                glm::vec3(at.x, at.y, 0.0),
-                glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-                glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-            float ofs = (1.0f / scale) / drawable_size.y;
-            lines.draw_text(text,
-                glm::vec3(at.x + ofs, at.y + ofs, 0.0),
-                glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-                glm::u8vec4(0xff, 0xff, 0xff, 0x00));
-        };
-
-        lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMin.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
-        lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMax.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
-        lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMin.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
-        lines.draw(glm::vec3(Game::ArenaMax.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
-
-        for (auto const& player : game.players) {
-            glm::u8vec4 col = glm::u8vec4(player.color.x * 255, player.color.y * 255, player.color.z * 255, 0xff);
-            if (&player == &game.players.front()) {
-                // mark current player (which server sends first):
-                lines.draw(
-                    glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f, -0.5f), 0.0f),
-                    glm::vec3(player.position + Game::PlayerRadius * glm::vec2(0.5f, 0.5f), 0.0f),
-                    col);
-                lines.draw(
-                    glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f, 0.5f), 0.0f),
-                    glm::vec3(player.position + Game::PlayerRadius * glm::vec2(0.5f, -0.5f), 0.0f),
-                    col);
-            }
-            for (uint32_t a = 0; a < circle.size(); ++a) {
-                lines.draw(
-                    glm::vec3(player.position + Game::PlayerRadius * circle[a], 0.0f),
-                    glm::vec3(player.position + Game::PlayerRadius * circle[(a + 1) % circle.size()], 0.0f),
-                    col);
-            }
-
-            draw_text(player.position + glm::vec2(0.0f, -0.1f + Game::PlayerRadius), player.name, 0.09f);
-        }
+        board->draw(drawable_size);
     }
+
     GL_ERRORS();
 }
