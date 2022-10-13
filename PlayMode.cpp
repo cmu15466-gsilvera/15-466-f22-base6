@@ -83,7 +83,7 @@ void PlayMode::update(float elapsed)
         client.connections.back().send('b');
         client.connections.back().send(static_cast<unsigned char>(pos.x));
         client.connections.back().send(static_cast<unsigned char>(pos.y));
-        client.connections.back().send(enter.downs);
+        client.connections.back().send(enter.pressed);
     }
 
     // reset button press counters:
@@ -143,8 +143,9 @@ void PlayMode::update(float elapsed)
     }
 
     {
-        if (board->GetTile(pos).treasure && enter.pressed) {
+        if (board->GetTile(pos).treasure && enter.pressed && last_found != pos) {
             score += 1;
+            last_found = pos;
         }
     }
 

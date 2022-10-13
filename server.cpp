@@ -59,8 +59,8 @@ int main(int argc, char** argv)
             }
             std::string name;
 
-            uint32_t pos_x = 0;
-            uint32_t pos_y = 0;
+            uint32_t pos_x = -1;
+            uint32_t pos_y = -1;
             bool enter_pressed = false;
 
             int32_t total = 0;
@@ -126,10 +126,13 @@ int main(int argc, char** argv)
                             player.pos_x = pos_x;
                             player.pos_y = pos_y;
                             player.enter_pressed = enter_count;
-                            if (player.pos_x == treasure_x && player.pos_y == treasure_y && player.enter_pressed == 1) {
+                            if (player.pos_x == treasure_x && player.pos_y == treasure_y && player.enter_pressed > 0) {
                                 // randomize the treasure location
-                                treasure_x = rand() % (BOARD_WIDTH - 1);
-                                treasure_y = rand() % (BOARD_WIDTH - 1);
+                                do {
+                                    treasure_x = rand() % (BOARD_WIDTH - 1);
+                                    treasure_y = rand() % (BOARD_WIDTH - 1);
+                                    // ensure won't randomly respawn on the same tile
+                                } while (treasure_x == player.pos_x || treasure_y == player.pos_y);
                             }
 
                             c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + msg_len);
@@ -145,9 +148,10 @@ int main(int argc, char** argv)
             char board[msg_len] = { 0 };
 
             for (auto& [c, player] : players) {
-                size_t idx = player.pos_x + player.pos_y * BOARD_WIDTH;
+                int idx = player.pos_x + player.pos_y * BOARD_WIDTH;
                 // std::cout << "position: " << player.pos_x << " " << player.pos_y << std::endl;
-                board[idx]++;
+                if (idx >= 0 && idx < msg_len)
+                    board[idx]++;
             }
 
             size_t treasure_idx = treasure_x + BOARD_WIDTH * treasure_y;

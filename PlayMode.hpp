@@ -39,7 +39,7 @@ struct PlayMode : Mode {
     int score = 0;
 
     // position on the game board
-    glm::ivec2 pos;
+    glm::ivec2 pos, last_found { -1, -1 };
     static glm::ivec2 random_pos()
     {
         return glm::ivec2(rand() % (BOARD_WIDTH - 1), rand() % (BOARD_HEIGHT - 1));
