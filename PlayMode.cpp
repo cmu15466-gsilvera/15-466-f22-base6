@@ -137,7 +137,6 @@ void PlayMode::update(float elapsed)
             board->board[i].treasure = (server_message[i] < 0);
             // colour treasure yellow
             board->board[i].colour_other = true; // colour with this colour
-            // num_players += static_cast<size_t>(server_message[i]);
         }
         Tile::max_over = 1;
     }
