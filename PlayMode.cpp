@@ -12,9 +12,9 @@
 PlayMode::PlayMode(Client& client_)
     : client(client_)
 {
+    srand(time(0));
     board = new GameBoard(board_size);
     pos = PlayMode::random_pos();
-    srand(time(0));
 }
 
 PlayMode::~PlayMode()
