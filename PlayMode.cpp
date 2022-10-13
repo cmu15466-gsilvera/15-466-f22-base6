@@ -13,7 +13,8 @@ PlayMode::PlayMode(Client& client_)
     : client(client_)
 {
     board = new GameBoard(board_size);
-    pos = glm::ivec2(rand() % board->shape.x - 1, rand() % board->shape.y - 1);
+    pos = PlayMode::random_pos();
+    srand(time(0));
 }
 
 PlayMode::~PlayMode()
@@ -46,7 +47,7 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
             down.pressed = true;
             pos.y = std::min(board->shape.y - 1, pos.y + 1);
             return true;
-        } else if (evt.key.keysym.sym == SDLK_RETURN) {
+        } else if (evt.key.keysym.sym == SDLK_RETURN || evt.key.keysym.sym == SDLK_SPACE) {
             enter.downs += 1;
             enter.pressed = true;
             return true;
@@ -64,7 +65,7 @@ bool PlayMode::handle_event(SDL_Event const& evt, glm::uvec2 const& window_size)
         } else if (evt.key.keysym.sym == SDLK_DOWN) {
             down.pressed = false;
             return true;
-        } else if (evt.key.keysym.sym == SDLK_RETURN) {
+        } else if (evt.key.keysym.sym == SDLK_RETURN || evt.key.keysym.sym == SDLK_SPACE) {
             enter.pressed = false;
             return true;
         }
@@ -125,22 +126,36 @@ void PlayMode::update(float elapsed)
         }
     },
         0.0);
+
+    // update board state
     {
-        size_t num_players = 0;
         for (int i = 0; i < server_message.size(); i++) {
-            board->board[i].num_over = static_cast<size_t>(server_message[i]);
-            num_players += static_cast<size_t>(server_message[i]);
+            int new_num_over = static_cast<int>(std::fabs(server_message[i]));
+            board->board[i].delta = board->board[i].num_over - new_num_over;
+            board->board[i].num_over = new_num_over;
+            // treasure located if server message < 0
+            board->board[i].treasure = (server_message[i] < 0);
+            // colour treasure yellow
+            board->board[i].colour_other = true; // colour with this colour
+            // num_players += static_cast<size_t>(server_message[i]);
         }
-        Tile::max_over = num_players;
+        Tile::max_over = 1;
     }
+
     {
-        // colour this tile red (and not other tiles)
+        if (board->GetTile(pos).treasure && enter.pressed) {
+            score += 1;
+        }
+    }
+
+    // colour this tile blue
+    {
         if (last_tile != nullptr) {
             last_tile->colour_other = true;
         }
         auto& this_tile = board->GetTile(pos);
         this_tile.colour_other = false; // colour with this colour
-        this_tile.colour = glm::vec4(1.f, 0.f, 0.f, 1.f);
+        this_tile.colour = glm::vec4(0.f, 0.f, 1.f, 1.f);
         last_tile = &this_tile;
     }
 }
@@ -173,7 +188,7 @@ void PlayMode::draw(glm::uvec2 const& drawable_size)
 
         // draw_text(glm::vec2(-aspect + 0.1f, 0.0f), server_message, 0.09f);
 
-        draw_text(glm::vec2(-aspect + 0.1f, -0.9f), "(press WASD to change your total)", 0.09f);
+        draw_text(glm::vec2(-aspect + 0.1f, -0.9f), "(Your score: " + std::to_string(score) + ")", 0.09f);
     }
 
     // draw game board

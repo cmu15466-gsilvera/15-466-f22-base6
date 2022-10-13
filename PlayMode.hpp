@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 
 #include <deque>
+#include <time.h>
 #include <vector>
 
 #define BOARD_WIDTH 10
@@ -35,9 +36,14 @@ struct PlayMode : Mode {
 
     struct GameBoard* board;
     struct Tile* last_tile = nullptr;
+    int score = 0;
 
     // position on the game board
     glm::ivec2 pos;
+    static glm::ivec2 random_pos()
+    {
+        return glm::ivec2(rand() % (BOARD_WIDTH - 1), rand() % (BOARD_HEIGHT - 1));
+    }
 
     // connection to server:
     Client& client;

@@ -8,6 +8,7 @@
 #include <chrono>
 #include <iostream>
 #include <stdexcept>
+#include <time.h>
 #include <unordered_map>
 
 #ifdef _WIN32
@@ -44,7 +45,7 @@ int main(int argc, char** argv)
         Server server(argv[1]);
 
         //------------ main loop ------------
-        constexpr float ServerTick = 1.0f / 10.0f; // TODO: set a server tick that makes sense for your game
+        constexpr float ServerTick = 1.0f / 30.0f; // TODO: set a server tick that makes sense for your game
 
         // server state:
 
@@ -60,11 +61,14 @@ int main(int argc, char** argv)
 
             uint32_t pos_x = 0;
             uint32_t pos_y = 0;
-            uint32_t enter_presses = 0;
+            bool enter_pressed = false;
 
             int32_t total = 0;
         };
         std::unordered_map<Connection*, PlayerInfo> players;
+        srand(time(0));
+        int treasure_x = rand() % (BOARD_WIDTH - 1);
+        int treasure_y = rand() % (BOARD_WIDTH - 1);
 
         while (true) {
             static auto next_tick = std::chrono::steady_clock::now() + std::chrono::duration<double>(ServerTick);
@@ -121,7 +125,12 @@ int main(int argc, char** argv)
 
                             player.pos_x = pos_x;
                             player.pos_y = pos_y;
-                            player.enter_presses += enter_count;
+                            player.enter_pressed = enter_count;
+                            if (player.pos_x == treasure_x && player.pos_y == treasure_y && player.enter_pressed == 1) {
+                                // randomize the treasure location
+                                treasure_x = rand() % (BOARD_WIDTH - 1);
+                                treasure_y = rand() % (BOARD_WIDTH - 1);
+                            }
 
                             c->recv_buffer.erase(c->recv_buffer.begin(), c->recv_buffer.begin() + msg_len);
                         }
@@ -140,6 +149,9 @@ int main(int argc, char** argv)
                 // std::cout << "position: " << player.pos_x << " " << player.pos_y << std::endl;
                 board[idx]++;
             }
+
+            size_t treasure_idx = treasure_x + BOARD_WIDTH * treasure_y;
+            board[treasure_idx] = -board[treasure_idx];
             std::string status_message(board, msg_len);
             // std::cout << status_message << std::endl; // DEBUG
 

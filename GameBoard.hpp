@@ -10,7 +10,9 @@
 // got rendering help from: https://learnopengl.com/Getting-started/Hello-Triangle
 struct Tile {
     int num_over = 0;
+    int delta = 0;
     inline static size_t max_over = 1; // how to determine when a tile is white (maximally coloured)
+    bool treasure = false;
 
     constexpr static glm::vec2 block_size = glm::vec2(0.1, 0.1);
 
@@ -94,6 +96,9 @@ struct Tile {
         if (colour_other) {
             float lum = num_over / static_cast<float>(max_over);
             colour = glm::vec4(lum, lum, lum, 1.0);
+        }
+        if (treasure) {
+            colour = glm::vec4(1.f, 1.f, 0.f, 1.f);
         }
         // send colour to shader
         glUniform4f(glGetUniformLocation(Tile::draw_program, "colour"), colour.x, colour.y, colour.z, colour.w);
